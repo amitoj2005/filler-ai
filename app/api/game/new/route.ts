@@ -1,6 +1,14 @@
 import { NextResponse } from "next/server";
+import { generateBoard } from "@/lib/filler/board";
+import { initState, serializeState } from "@/lib/filler/rules";
+import { createGame } from "@/lib/db";
+import { getOrCreateAnonId } from "@/lib/anonUser";
 
-// TODO: generate a new board, persist game row to DB, return initial state
 export async function POST() {
-  return NextResponse.json({ error: "Not implemented" }, { status: 501 });
+  const anonId = await getOrCreateAnonId();
+  const board = generateBoard();
+  const state = initState(board);
+  const serialized = serializeState(state);
+  const gameId = await createGame(anonId, serialized);
+  return NextResponse.json({ gameId, state: serialized });
 }

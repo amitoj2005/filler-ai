@@ -1,0 +1,4 @@
+torch
+onnx
+psycopg2-binary
+python-dotenv

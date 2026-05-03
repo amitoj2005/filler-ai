@@ -50,7 +50,13 @@ function neighbors(idx: number, rows: number, cols: number): number[] {
 }
 
 // Expands territory to all contiguous cells of the chosen color.
-export function floodFill(board: Board, territory: Set<number>, color: Color): Set<number> {
+// Pass `excluded` (the opponent's territory) so claimed cells are never stolen.
+export function floodFill(
+  board: Board,
+  territory: Set<number>,
+  color: Color,
+  excluded?: Set<number>,
+): Set<number> {
   const rows = board.length;
   const cols = board[0].length;
   const next = new Set(territory);
@@ -58,7 +64,7 @@ export function floodFill(board: Board, territory: Set<number>, color: Color): S
   while (queue.length > 0) {
     const idx = queue.pop()!;
     for (const n of neighbors(idx, rows, cols)) {
-      if (!next.has(n)) {
+      if (!next.has(n) && !excluded?.has(n)) {
         const r = Math.floor(n / cols);
         const c = n % cols;
         if (board[r][c] === color) {
@@ -77,6 +83,7 @@ export function applyMove(state: GameState, player: Player, color: Color): GameS
     state.board,
     isP1 ? state.p1Territory : state.p2Territory,
     color,
+    isP1 ? state.p2Territory : state.p1Territory, // opponent cells are immovable
   );
   const p1Territory = isP1 ? territory : state.p1Territory;
   const p2Territory = isP1 ? state.p2Territory : territory;

@@ -1,4 +1,5 @@
 import { neon } from "@neondatabase/serverless";
+import type { Board } from "./filler/board";
 import type { SerializedState } from "./filler/rules";
 
 if (!process.env.DATABASE_URL) {
@@ -14,14 +15,12 @@ export interface GameRow {
   created_at: Date;
   completed_at: Date | null;
   winner: "p1" | "p2" | "draw" | null;
-  initial_board: SerializedState["board"];
-  // Array of { player, color } objects
+  initial_board: Board;
   move_history: Array<{ player: "p1" | "p2"; color: number }>;
   model_version: string;
   final_score_human: number | null;
   final_score_ai: number | null;
   anonymous_user_id: string;
-  // Current in-progress game state stored as JSONB
   current_state: SerializedState;
 }
 
@@ -30,6 +29,7 @@ export interface GameRow {
 export async function createGame(
   anonymousUserId: string,
   initialState: SerializedState,
+  modelVersion = "heuristic-v0",
 ): Promise<string> {
   const rows = await sql`
     INSERT INTO games (
@@ -43,7 +43,45 @@ export async function createGame(
       ${JSON.stringify(initialState.board)},
       ${JSON.stringify(initialState)},
       ${"[]"},
-      ${"heuristic-v0"}
+      ${modelVersion}
+    )
+    RETURNING id
+  `;
+  return (rows[0] as { id: string }).id;
+}
+
+// Single-query insert for a fully-played game (used by the self-play script).
+export async function createCompleteGame(
+  anonymousUserId: string,
+  modelVersion: string,
+  initialBoard: Board,
+  moveHistory: Array<{ player: "p1" | "p2"; color: number }>,
+  finalState: SerializedState,
+  winner: "p1" | "p2" | "draw",
+  scoreP1: number,
+  scoreP2: number,
+): Promise<string> {
+  const rows = await sql`
+    INSERT INTO games (
+      anonymous_user_id,
+      initial_board,
+      current_state,
+      move_history,
+      model_version,
+      completed_at,
+      winner,
+      final_score_human,
+      final_score_ai
+    ) VALUES (
+      ${anonymousUserId},
+      ${JSON.stringify(initialBoard)},
+      ${JSON.stringify(finalState)},
+      ${JSON.stringify(moveHistory)},
+      ${modelVersion},
+      NOW(),
+      ${winner},
+      ${scoreP1},
+      ${scoreP2}
     )
     RETURNING id
   `;
@@ -64,7 +102,7 @@ export async function appendMove(
   await sql`
     UPDATE games
     SET
-      move_history = move_history || ${JSON.stringify({ player, color })}::jsonb,
+      move_history  = move_history || ${JSON.stringify({ player, color })}::jsonb,
       current_state = ${JSON.stringify(newState)}
     WHERE id = ${gameId}
   `;
@@ -80,9 +118,9 @@ export async function completeGame(
   await sql`
     UPDATE games
     SET
-      completed_at = NOW(),
-      winner       = ${winner},
-      current_state = ${JSON.stringify(finalState)},
+      completed_at      = NOW(),
+      winner            = ${winner},
+      current_state     = ${JSON.stringify(finalState)},
       final_score_human = ${scoreHuman},
       final_score_ai    = ${scoreAi}
     WHERE id = ${gameId}

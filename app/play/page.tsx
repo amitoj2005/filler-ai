@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { applyMove } from "@/lib/filler/rules";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -319,9 +320,9 @@ export default function PlayPage() {
       <div className="flex-1 flex flex-col items-center justify-center gap-4">
 
         {/* Nav */}
-        <a href="/" className="self-start text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+        <Link href="/" className="self-start text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
           ← Home
-        </a>
+        </Link>
 
         {/* Score bar */}
         <div className="flex w-full max-w-sm items-center justify-between rounded-2xl bg-gray-100 dark:bg-gray-800 px-6 py-3">

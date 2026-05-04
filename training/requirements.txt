@@ -4,3 +4,4 @@ psycopg2-binary~=2.9
 python-dotenv~=1.2
 onnx~=1.21
 onnxruntime~=1.25
+onnxscript~=0.1

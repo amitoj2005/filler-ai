@@ -19,8 +19,11 @@ Encoding tensor shape: (10, ROWS, COLS) = (10, 8, 7)
 from __future__ import annotations
 
 import os
+from collections import deque
 from pathlib import Path
 from typing import Generator, TypedDict
+
+import random as _random
 
 import numpy as np
 import psycopg2
@@ -33,6 +36,33 @@ ROWS: int = 8
 COLS: int = 7
 NUM_COLORS: int = 6
 TOTAL_CELLS: int = ROWS * COLS  # 56
+
+
+def generate_board() -> np.ndarray:
+    """
+    Return a ROWS×COLS board (shape (8,7) int8) where:
+      - no two adjacent cells share a color, and
+      - the two starting corners (bottom-left, top-right) have different colors.
+    Matches generateBoard() in lib/filler/board.ts exactly.
+    """
+    while True:
+        board = np.empty((ROWS, COLS), dtype=np.int8)
+        for r in range(ROWS):
+            for c in range(COLS):
+                forbidden: set[int] = set()
+                if r > 0:
+                    forbidden.add(int(board[r - 1, c]))
+                if c > 0:
+                    forbidden.add(int(board[r, c - 1]))
+                choices = [x for x in range(NUM_COLORS) if x not in forbidden]
+                board[r, c] = _random.choice(choices)
+        if board[ROWS - 1, 0] != board[0, COLS - 1]:
+            return board
+
+
+def legal_colors(p1_color: int, p2_color: int) -> list[int]:
+    """Colors that are legal for either player to pick (excludes both players' colors)."""
+    return [c for c in range(NUM_COLORS) if c != p1_color and c != p2_color]
 
 
 # ── DB connection ─────────────────────────────────────────────────────────────
@@ -101,18 +131,25 @@ def _cell_index(r: int, c: int) -> int:
     return r * COLS + c
 
 
+# Pre-computed neighbor lists — built once at import time so _flood_fill never
+# recomputes adjacency on each call.
+def _build_neighbors() -> list[list[int]]:
+    table: list[list[int]] = []
+    for idx in range(TOTAL_CELLS):
+        r, c = divmod(idx, COLS)
+        nbrs: list[int] = []
+        if r > 0:         nbrs.append((r - 1) * COLS + c)
+        if r < ROWS - 1:  nbrs.append((r + 1) * COLS + c)
+        if c > 0:         nbrs.append(r * COLS + (c - 1))
+        if c < COLS - 1:  nbrs.append(r * COLS + (c + 1))
+        table.append(nbrs)
+    return table
+
+_NEIGHBORS: list[list[int]] = _build_neighbors()
+
+
 def _neighbors(idx: int) -> list[int]:
-    r, c = divmod(idx, COLS)
-    result: list[int] = []
-    if r > 0:
-        result.append((r - 1) * COLS + c)
-    if r < ROWS - 1:
-        result.append((r + 1) * COLS + c)
-    if c > 0:
-        result.append(r * COLS + (c - 1))
-    if c < COLS - 1:
-        result.append(r * COLS + (c + 1))
-    return result
+    return _NEIGHBORS[idx]
 
 
 def _flood_fill(
@@ -127,18 +164,18 @@ def _flood_fill(
     Mirrors floodFill() in rules.ts including the excluded-set fix.
     """
     next_territory: set[int] = set(territory)
-    stack: list[int] = list(territory)
-    while stack:
-        idx = stack.pop()
-        for n in _neighbors(idx):
+    board_flat = board.ravel()          # flat view — avoids per-cell divmod
+    q: deque[int] = deque(territory)
+    while q:
+        idx = q.popleft()
+        for n in _NEIGHBORS[idx]:
             if n in next_territory:
                 continue
             if excluded is not None and n in excluded:
                 continue
-            r, c = divmod(n, COLS)
-            if board[r, c] == color:
+            if board_flat[n] == color:
                 next_territory.add(n)
-                stack.append(n)
+                q.append(n)
     return next_territory
 
 
@@ -265,6 +302,7 @@ class TrainingExample(TypedDict):
     input_tensor: np.ndarray   # shape (10, ROWS, COLS) float32
     policy_target: int         # 0-5, color actually played
     value_target: float        # +1 win, -1 loss, 0 draw (from player-to-move POV)
+    player_to_move: str        # "p1" or "p2" — for diagnostic value-split in train.py
 
 
 def build_training_set(
@@ -304,15 +342,17 @@ def build_training_set(
                 input_tensor=tensor,
                 policy_target=policy,
                 value_target=value,
+                player_to_move=player,
             )
 
             # Horizontally mirrored position
-            m_board = _mirror_board(board)
-            m_cur   = _mirror_territory(cur_territory)
-            m_opp   = _mirror_territory(opp_territory)
+            m_board  = _mirror_board(board)
+            m_cur    = _mirror_territory(cur_territory)
+            m_opp    = _mirror_territory(opp_territory)
             m_tensor = encode_position(m_board, m_cur, m_opp)
             yield TrainingExample(
                 input_tensor=m_tensor,
                 policy_target=policy,
                 value_target=value,
+                player_to_move=player,
             )

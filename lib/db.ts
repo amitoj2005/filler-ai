@@ -156,6 +156,7 @@ const MILESTONES = [100, 500, 1000, 5000] as const;
 export async function getEnrichedStats(): Promise<{
   totalGamesCompleted: number;
   humanGamesCompleted: number;
+  aiWinRate: number | null;
   currentModel: string;
   gamesTrainedOn: number;
   milestones: number[];
@@ -165,7 +166,8 @@ export async function getEnrichedStats(): Promise<{
     sql`
       SELECT
         COUNT(*) FILTER (WHERE completed_at IS NOT NULL)                              AS total_completed,
-        COUNT(*) FILTER (WHERE completed_at IS NOT NULL AND anonymous_user_id != 'selfplay') AS human_completed
+        COUNT(*) FILTER (WHERE completed_at IS NOT NULL AND anonymous_user_id != 'selfplay') AS human_completed,
+        COUNT(*) FILTER (WHERE completed_at IS NOT NULL AND anonymous_user_id != 'selfplay' AND winner = 'p2') AS ai_wins
       FROM games
     `,
     sql`
@@ -176,10 +178,12 @@ export async function getEnrichedStats(): Promise<{
     `,
   ]);
 
-  const g = gameRows[0] as { total_completed: string; human_completed: string };
+  const g = gameRows[0] as { total_completed: string; human_completed: string; ai_wins: string };
   const m = modelRows[0] as { version: string; game_count: number } | undefined;
 
   const humanGamesCompleted = Number(g.human_completed);
+  const aiWins = Number(g.ai_wins);
+  const aiWinRate = humanGamesCompleted >= 5 ? Math.round((aiWins / humanGamesCompleted) * 100) : null;
   const nextMilestone =
     ([...MILESTONES] as number[]).find((ms) => ms > humanGamesCompleted) ??
     MILESTONES[MILESTONES.length - 1];
@@ -187,6 +191,7 @@ export async function getEnrichedStats(): Promise<{
   return {
     totalGamesCompleted: Number(g.total_completed),
     humanGamesCompleted,
+    aiWinRate,
     currentModel: m?.version ?? "heuristic-v0",
     gamesTrainedOn: m?.game_count ?? 0,
     milestones: [...MILESTONES],

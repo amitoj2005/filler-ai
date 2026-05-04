@@ -1,13 +1,13 @@
 """
 FillerNet — lightweight policy+value network for the Filler board game.
 
-Input:  (batch, 10, 8, 7) float32
+Input:  (batch, 10, 7, 8) float32  — (batch, channels, ROWS, COLS)
 Output: (policy_logits (batch,6), value (batch,1))
 
 Architecture:
   Body   3 × [Conv2d → BatchNorm2d → ReLU]  (64 filters, 3×3, padding=1)
-  Policy Conv2d(64→2, 1×1) → ReLU → Flatten → Linear(112, 6)
-  Value  Conv2d(64→1, 1×1) → ReLU → Flatten → Linear(56, 32) → ReLU → Linear(32,1) → Tanh
+  Policy Conv2d(64→2, 1×1) → ReLU → Flatten → Linear(2*7*8=112, 6)
+  Value  Conv2d(64→1, 1×1) → ReLU → Flatten → Linear(7*8=56, 32) → ReLU → Linear(32,1) → Tanh
 """
 
 from __future__ import annotations

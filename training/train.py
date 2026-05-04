@@ -8,6 +8,7 @@ Usage (from repo root):
 from __future__ import annotations
 
 import argparse
+import datetime
 import sys
 import time
 from pathlib import Path
@@ -47,7 +48,6 @@ BATCH_SIZE       = 128
 LR               = 1e-3
 EPOCHS           = 20
 VAL_SPLIT        = 0.1
-ONNX_VERSION_TAG = "v1-heuristic-trained"
 
 CHECKPOINT_DIR = Path(__file__).parent / "checkpoints"
 ONNX_PATH      = Path(__file__).parent.parent / "lib" / "ai" / "model.onnx"
@@ -80,8 +80,11 @@ else:
 n_examples = sum(len(g["move_history"]) for g in games) * 2  # ×2 for mirror
 print(f"Building {n_examples:,} training examples…")
 
+# Version tag computed here so it includes the actual game count
+ONNX_VERSION_TAG = f"neural-{datetime.date.today().isoformat()}-{len(games)}games"
+
 # Pre-allocate arrays then fill from the generator (avoids list overhead)
-inputs_arr  = np.empty((n_examples, 10, 8, 7), dtype=np.float32)
+inputs_arr  = np.empty((n_examples, 10, 7, 8), dtype=np.float32)
 policy_arr  = np.empty(n_examples,              dtype=np.int64)
 value_arr   = np.empty(n_examples,              dtype=np.float32)
 ptm_arr     = np.empty(n_examples,              dtype=np.float32)  # 1=p1, 0=p2
@@ -197,7 +200,7 @@ model.load_state_dict(
 model.eval()
 
 ONNX_PATH.parent.mkdir(parents=True, exist_ok=True)
-dummy = torch.randn(1, 10, 8, 7)
+dummy = torch.randn(1, 10, 7, 8)
 
 torch.onnx.export(
     model,

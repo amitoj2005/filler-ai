@@ -46,10 +46,16 @@ export async function getAIMove(state: GameState): Promise<Color> {
 
     let bestColor = legal[0];
     let bestScore = -Infinity;
+    let maxGain = 0;
+    const gainByColor = new Map<Color, number>();
+    const scoreByColor = new Map<Color, number>();
 
     for (const color of legal) {
       // Simulate AI applying this move
       const newMyTerritory = floodFill(state.board, myTerritory, color, opTerritory);
+      const gain = newMyTerritory.size - myTerritory.size;
+      gainByColor.set(color, gain);
+      if (gain > maxGain) maxGain = gain;
 
       // Encode from p1's perspective (they move next after us)
       const oppData = encodePosition(state.board, opTerritory, newMyTerritory);
@@ -59,6 +65,7 @@ export async function getAIMove(state: GameState): Promise<Color> {
 
       // Negate: low value for p1 = good for AI
       const score = -oppValue;
+      scoreByColor.set(color, score);
 
       if (
         score > bestScore ||
@@ -67,6 +74,23 @@ export async function getAIMove(state: GameState): Promise<Color> {
         bestScore = score;
         bestColor = color;
       }
+    }
+
+    // If there are territory-gaining moves but the neural net chose a 0-gain move,
+    // override: pick the max-gain color with best value score as tie-break.
+    // This ensures isolated/trapped cells are always claimed once they're available.
+    if (maxGain > 0 && (gainByColor.get(bestColor) ?? 0) < maxGain) {
+      bestColor = legal.reduce((best, c) => {
+        const gc = gainByColor.get(c) ?? 0;
+        const gb = gainByColor.get(best) ?? 0;
+        if (gc < maxGain && gb === maxGain) return best;
+        if (gc === maxGain && gb < maxGain) return c;
+        const sc = scoreByColor.get(c) ?? -Infinity;
+        const sb = scoreByColor.get(best) ?? -Infinity;
+        if (sc > sb) return c;
+        if (Math.abs(sc - sb) < 1e-9 && policyData[c] > policyData[best]) return c;
+        return best;
+      });
     }
 
     return bestColor;

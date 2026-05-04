@@ -2,13 +2,13 @@
 Filler AI – data extraction and encoding.
 
 Board convention (matches lib/filler/board.ts + rules.ts exactly):
-  ROWS = 8, COLS = 7
-  board[r][c]  r=0 is top row, r=7 is bottom row
+  ROWS = 7, COLS = 8
+  board[r][c]  r=0 is top row, r=6 is bottom row
   cell index   idx = r * COLS + c
-  p1 starts at bottom-left: idx = (ROWS-1)*COLS + 0 = 49
-  p2 starts at top-right:   idx = 0*COLS + (COLS-1)  = 6
+  p1 starts at bottom-left: idx = (ROWS-1)*COLS + 0 = 48
+  p2 starts at top-right:   idx = 0*COLS + (COLS-1)  = 7
 
-Encoding tensor shape: (10, ROWS, COLS) = (10, 8, 7)
+Encoding tensor shape: (10, ROWS, COLS) = (10, 7, 8)
   Channels 0-5 : one-hot board color
   Channel  6   : current player territory mask
   Channel  7   : opponent territory mask
@@ -32,8 +32,8 @@ from dotenv import load_dotenv
 
 # ── Constants (must match board.ts) ──────────────────────────────────────────
 
-ROWS: int = 8
-COLS: int = 7
+ROWS: int = 7
+COLS: int = 8
 NUM_COLORS: int = 6
 TOTAL_CELLS: int = ROWS * COLS  # 56
 

@@ -36,7 +36,7 @@ print("Loaded checkpoints/best.pt")
 
 print("Exporting to ONNX...")
 ONNX_PATH.parent.mkdir(parents=True, exist_ok=True)
-dummy = torch.randn(1, 10, 8, 7)
+dummy = torch.randn(1, 10, 7, 8)
 
 torch.onnx.export(
     model,

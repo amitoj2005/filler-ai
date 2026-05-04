@@ -1,5 +1,5 @@
-export const COLS = 7;
-export const ROWS = 8;
+export const COLS = 8;
+export const ROWS = 7;
 export const NUM_COLORS = 6;
 
 export type Color = 0 | 1 | 2 | 3 | 4 | 5;

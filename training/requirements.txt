@@ -1,4 +1,6 @@
-torch
-onnx
-psycopg2-binary
-python-dotenv
+torch~=2.11
+numpy~=2.4
+psycopg2-binary~=2.9
+python-dotenv~=1.2
+onnx~=1.21
+onnxruntime~=1.25

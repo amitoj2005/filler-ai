@@ -1,12 +1,19 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Vercel's file tracer can't detect runtime path.join() loads, so we tell it
-  // explicitly to bundle the ONNX model and the onnxruntime native binaries.
+  // Include only what Vercel (Linux x64) needs — the model file and Linux binary.
   outputFileTracingIncludes: {
     "/api/game/move": [
       "./lib/ai/model.onnx",
-      "./node_modules/onnxruntime-node/**/*.node",
+      "./node_modules/onnxruntime-node/bin/napi-v6/linux/x64/**",
+    ],
+  },
+  // Strip every other platform's binaries so the function stays under 250 MB.
+  outputFileTracingExcludes: {
+    "*": [
+      "./node_modules/onnxruntime-node/bin/napi-v6/darwin/**",
+      "./node_modules/onnxruntime-node/bin/napi-v6/linux/arm64/**",
+      "./node_modules/onnxruntime-node/bin/napi-v6/win32/**",
     ],
   },
 };

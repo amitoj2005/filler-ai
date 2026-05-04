@@ -2,7 +2,8 @@ name: Weekly model retrain
 
 on:
   schedule:
-    - cron: '0 3 * * *'   # every day at 3am UTC
+    - cron: '0 3 * * *'    # daily at 3am UTC  — threshold: 20 games
+    - cron: '0 15 * * *'   # daily at 3pm UTC  — threshold: 50 games
   workflow_dispatch:        # also triggerable manually from the GitHub UI
 
 permissions:
@@ -27,9 +28,15 @@ jobs:
       - name: Train model
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        # --include-human-games  : train on all completed games, not just self-play
-        # --min-new-games 20     : skip the run if fewer than 20 human games exist
-        run: python training/train.py --include-human-games --min-new-games 20
+        # 3am run: retrain if ≥20 human games played
+        # 3pm run: retrain if ≥50 human games played (mid-day early trigger)
+        # manual dispatch: always attempt (uses the lower 20-game threshold)
+        run: |
+          if [ "${{ github.event.schedule }}" = "0 15 * * *" ]; then
+            python training/train.py --include-human-games --min-new-games 50
+          else
+            python training/train.py --include-human-games --min-new-games 20
+          fi
 
       - name: Commit updated model
         run: |

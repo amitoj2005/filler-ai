@@ -93,7 +93,7 @@ function Cell({
   return (
     <div
       className={[
-        "aspect-square transition-colors duration-200",
+        "transition-colors duration-200",
         COLOR_BG[color],
         isTerritory
           ? `relative ${cornerClass} ${isPulsing ? "z-10 [animation:blobPulse_1.5s_ease-in-out_infinite]" : "z-0"}`
@@ -282,7 +282,7 @@ export default function PlayPage() {
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
-    <main className="min-h-screen flex flex-col px-8 py-6 gap-6">
+    <main className="min-h-screen flex flex-col px-4 py-4 sm:px-8 sm:py-6 gap-4 sm:gap-6">
 
       {/* Top bar: stats (left) + dark toggle (right) */}
       <div className="flex items-start justify-between">
@@ -330,7 +330,7 @@ export default function PlayPage() {
         </Link>
 
         {/* Score bar */}
-        <div className="flex w-full max-w-sm items-center justify-between rounded-2xl bg-gray-100 dark:bg-gray-800 px-6 py-3">
+        <div className="flex w-full max-w-[420px] items-center justify-between rounded-2xl bg-gray-100 dark:bg-gray-800 px-6 py-3">
           <div className="text-center">
             <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">You</p>
             <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">{p1Score}</p>
@@ -347,7 +347,7 @@ export default function PlayPage() {
         </div>
 
         {/* Territory progress bar — player grows from left, AI from right */}
-        <div className="w-full max-w-sm h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden relative">
+        <div className="w-full max-w-[420px] h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden relative">
           <div
             className="absolute left-0 top-0 h-full transition-all duration-300 bg-blue-500"
             style={{ width: `${(p1Score / total) * 100}%` }}
@@ -360,10 +360,11 @@ export default function PlayPage() {
 
         {/* Board */}
         <div
-          className="grid gap-0"
+          className="grid gap-0 w-full max-w-[420px]"
           style={{
             gridTemplateColumns: `repeat(${COLS}, 1fr)`,
-            width: "min(calc(100vw - 4rem), 420px)",
+            gridTemplateRows: `repeat(${ROWS}, 1fr)`,
+            aspectRatio: `${COLS} / ${ROWS}`,
           }}
         >
           {apiState.board.flatMap((row, r) =>

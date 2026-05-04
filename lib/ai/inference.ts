@@ -1,5 +1,6 @@
-import * as ort from "onnxruntime-node";
+import * as ort from "onnxruntime-web";
 import * as path from "path";
+import { readFileSync } from "fs";
 import { floodFill, legalColors } from "../filler/rules";
 import { encodePosition } from "../filler/encode";
 import { ROWS, COLS } from "../filler/board";
@@ -9,11 +10,19 @@ import { pickMove as heuristicPickMove } from "./heuristic";
 
 const MODEL_PATH = path.join(process.cwd(), "lib", "ai", "model.onnx");
 
+// Single-threaded WASM — no Web Workers needed in serverless
+ort.env.wasm.numThreads = 1;
+// Load WASM runtime from CDN; avoids bundling ~25 MB of WASM files
+ort.env.wasm.wasmPaths = "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.25.1/dist/";
+
 let _session: ort.InferenceSession | null = null;
 
 async function getSession(): Promise<ort.InferenceSession> {
   if (!_session) {
-    _session = await ort.InferenceSession.create(MODEL_PATH);
+    const modelData = readFileSync(MODEL_PATH);
+    _session = await ort.InferenceSession.create(modelData, {
+      executionProviders: ["wasm"],
+    });
   }
   return _session;
 }

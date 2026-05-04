@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "prebuild": "node scripts/prune-onnx-binaries.js",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -17,7 +16,7 @@
     "@neondatabase/serverless": "^1.1.0",
     "dotenv": "^17.4.2",
     "next": "15.5.15",
-    "onnxruntime-node": "^1.25.1",
+    "onnxruntime-web": "^1.25.1",
     "react": "19.1.0",
     "react-dom": "19.1.0"
   },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { applyMove } from "@/lib/filler/rules";
 
@@ -78,16 +78,29 @@ const COLORS: Color[] = [0, 1, 2, 3, 4, 5];
 // Territory cells are flush (no gap) with rounded outer corners only.
 // Neutral cells have a small margin so they read as individual squares.
 
+type Corner = "tl" | "tr" | "bl" | "br";
+
+// Overlay style per concave corner — background-colored rounded square that
+// sits at the cell corner to visually soften the concave indentation.
+const CONCAVE_STYLE: Record<Corner, React.CSSProperties> = {
+  tl: { top: 0,    left:  0, borderRadius: "0 0 8px 0" },
+  tr: { top: 0,    right: 0, borderRadius: "0 0 0 8px" },
+  bl: { bottom: 0, left:  0, borderRadius: "0 8px 0 0" },
+  br: { bottom: 0, right: 0, borderRadius: "8px 0 0 0" },
+};
+
 function Cell({
   color,
   ownership,
   cornerClass,
   isPulsing,
+  concave,
 }: {
   color: Color;
   ownership: "p1" | "p2" | "none";
   cornerClass: string;
   isPulsing: boolean;
+  concave: Corner[];
 }) {
   const isTerritory = ownership !== "none";
   return (
@@ -99,7 +112,20 @@ function Cell({
           ? `relative ${cornerClass} ${isPulsing ? "z-10 [animation:blobPulse_1.5s_ease-in-out_infinite]" : "z-0"}`
           : "m-[2px] rounded-sm",
       ].join(" ")}
-    />
+    >
+      {concave.map((pos) => (
+        <div
+          key={pos}
+          style={{
+            position: "absolute",
+            width: 8,
+            height: 8,
+            background: "var(--background)",
+            ...CONCAVE_STYLE[pos],
+          }}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -118,6 +144,24 @@ function getCornerClass(idx: number, set: Set<number>): string {
     !has( 1, 0) && !has(0, -1) ? "rounded-bl-lg" : "",
     !has( 1, 0) && !has(0,  1) ? "rounded-br-lg" : "",
   ].filter(Boolean).join(" ");
+}
+
+// Returns concave corner positions — where both orthogonal neighbours are in the
+// blob but the diagonal is not, creating an L-shaped indentation.
+function getConcave(idx: number, set: Set<number>): Corner[] {
+  const r = Math.floor(idx / COLS);
+  const c = idx % COLS;
+  const has = (dr: number, dc: number): boolean => {
+    const nr = r + dr, nc = c + dc;
+    if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) return false;
+    return set.has(nr * COLS + nc);
+  };
+  const result: Corner[] = [];
+  if (has(-1, 0) && has(0, -1) && !has(-1, -1)) result.push("tl");
+  if (has(-1, 0) && has(0,  1) && !has(-1,  1)) result.push("tr");
+  if (has( 1, 0) && has(0, -1) && !has( 1, -1)) result.push("bl");
+  if (has( 1, 0) && has(0,  1) && !has( 1,  1)) result.push("br");
+  return result;
 }
 
 // ── Color button ───────────────────────────────────────────────────────────────
@@ -183,7 +227,11 @@ export default function PlayPage() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => { fetchStats(); }, [fetchStats]);
+  useEffect(() => {
+    fetchStats();
+    const id = setInterval(fetchStats, 10_000);
+    return () => clearInterval(id);
+  }, [fetchStats]);
 
   const startGame = useCallback(async () => {
     if (startingRef.current) return;
@@ -371,7 +419,8 @@ export default function PlayPage() {
                 : boardColor;
               const isPulsing = phase === "playing" && ownership === "p1";
               const cornerClass = ownership !== "none" ? getCornerClass(idx, ownership === "p1" ? p1Set : p2Set) : "";
-              return <Cell key={idx} color={displayColor} ownership={ownership} cornerClass={cornerClass} isPulsing={isPulsing} />;
+              const concave = ownership !== "none" ? getConcave(idx, ownership === "p1" ? p1Set : p2Set) : [];
+              return <Cell key={idx} color={displayColor} ownership={ownership} cornerClass={cornerClass} isPulsing={isPulsing} concave={concave} />;
             }),
           )}
         </div>

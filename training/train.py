@@ -7,6 +7,7 @@ Usage (from repo root):
 
 from __future__ import annotations
 
+import argparse
 import sys
 import time
 from pathlib import Path
@@ -18,13 +19,30 @@ from torch.utils.data import DataLoader, TensorDataset
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from data import build_training_set, connect_db, fetch_games
+from data import build_training_set, connect_db, fetch_all_games, fetch_games
 from model import FillerNet
+
+# ── CLI args ──────────────────────────────────────────────────────────────────
+
+parser = argparse.ArgumentParser(description="Train FillerNet on self-play + human game data.")
+parser.add_argument(
+    "--include-human-games",
+    action="store_true",
+    help="Pull all completed games from the DB (not just heuristic self-play).",
+)
+parser.add_argument(
+    "--min-new-games",
+    type=int,
+    default=0,
+    metavar="N",
+    help="Exit 0 (skip) if fewer than N human games exist since last training.",
+)
+args = parser.parse_args()
 
 # ── Hyper-parameters ──────────────────────────────────────────────────────────
 
 SEED             = 42
-MODEL_VERSION    = "heuristic-selfplay-v0"
+SELFPLAY_VERSION = "heuristic-selfplay-v0"
 BATCH_SIZE       = 128
 LR               = 1e-3
 EPOCHS           = 20
@@ -39,9 +57,25 @@ np.random.seed(SEED)
 
 # ── Load data ─────────────────────────────────────────────────────────────────
 
-print("Loading games from DB…")
-games = fetch_games(MODEL_VERSION)
-print(f"  {len(games)} games loaded")
+print("Loading games from DB...")
+if args.include_human_games:
+    games, breakdown = fetch_all_games()
+    print("  Data sources:")
+    for mv in sorted(breakdown):
+        label = "human" if not mv.startswith("heuristic") else mv
+        print(f"    {label}: {breakdown[mv]} games")
+    print(f"  {len(games)} games total")
+
+    # --min-new-games check: count non-selfplay completed games
+    human_count = sum(v for k, v in breakdown.items() if not k.startswith("heuristic"))
+    if args.min_new_games > 0 and human_count < args.min_new_games:
+        print(f"  Only {human_count} human games (need {args.min_new_games}) — skipping training.")
+        sys.exit(0)
+else:
+    games = fetch_games(SELFPLAY_VERSION)
+    print(f"  {len(games)} games loaded (heuristic-selfplay-v0 only)")
+    if args.min_new_games > 0:
+        print("  --min-new-games ignored without --include-human-games")
 
 n_examples = sum(len(g["move_history"]) for g in games) * 2  # ×2 for mirror
 print(f"Building {n_examples:,} training examples…")

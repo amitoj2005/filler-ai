@@ -1,30 +1,46 @@
-import { getStats } from "@/lib/db";
+import { getEnrichedStats } from "@/lib/db";
+import StatsPanel from "./_components/StatsPanel";
+import type { StatsData } from "./_components/StatsPanel";
 
 export const revalidate = 60;
 
+const FALLBACK: StatsData = {
+  humanGamesCompleted: 0,
+  currentModel: "heuristic-v0",
+  gamesTrainedOn: 0,
+  milestones: [100, 500, 1000, 5000],
+  nextMilestone: 100,
+};
+
 export default async function Home() {
-  let completedGames = 0;
+  let initial: StatsData = FALLBACK;
   try {
-    const stats = await getStats();
-    completedGames = stats.completedGames;
+    const s = await getEnrichedStats();
+    initial = {
+      humanGamesCompleted: s.humanGamesCompleted,
+      currentModel: s.currentModel,
+      gamesTrainedOn: s.gamesTrainedOn,
+      milestones: s.milestones,
+      nextMilestone: s.nextMilestone,
+    };
   } catch {
-    // DB not available yet (e.g. no DATABASE_URL in dev) — show 0
+    // DB not available in CI / cold start — show fallback
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8">
-      <h1 className="text-4xl font-bold mb-4">Filler AI</h1>
-      <p className="text-lg text-gray-600 mb-2">
-        A color-flooding game with an AI opponent that learns from your games.
-      </p>
-      <p className="text-sm text-gray-400 mb-8">
-        AI has learned from{" "}
-        <span className="font-semibold text-gray-600">{completedGames}</span>{" "}
-        {completedGames === 1 ? "game" : "games"}
-      </p>
+    <main className="flex min-h-screen flex-col items-center justify-center gap-8 p-8">
+      <div className="text-center">
+        <h1 className="text-4xl font-bold mb-2">Filler AI</h1>
+        <p className="text-gray-500">
+          A color-flooding game with an AI that learns from your games.
+        </p>
+      </div>
+
+      <StatsPanel initial={initial} />
+
       <a
         href="/play"
-        className="rounded-lg bg-blue-600 px-6 py-3 text-white font-semibold hover:bg-blue-700 transition-colors"
+        className="rounded-lg bg-blue-600 px-8 py-3 text-white font-semibold hover:bg-blue-700 transition-colors"
       >
         Play
       </a>

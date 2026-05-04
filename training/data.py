@@ -125,6 +125,42 @@ def fetch_games(model_version: str) -> list[GameRecord]:
     return games
 
 
+def fetch_all_games() -> tuple[list[GameRecord], dict[str, int]]:
+    """
+    Return all completed games across all model versions, plus a breakdown
+    dict mapping model_version → game count.
+    """
+    conn = connect_db()
+    try:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT id, initial_board, move_history, winner, model_version
+                FROM   games
+                WHERE  completed_at IS NOT NULL
+                ORDER  BY created_at
+                """
+            )
+            rows = cur.fetchall()
+    finally:
+        conn.close()
+
+    games: list[GameRecord] = []
+    breakdown: dict[str, int] = {}
+    for row in rows:
+        games.append(
+            GameRecord(
+                id=row["id"],
+                initial_board=np.array(row["initial_board"], dtype=np.int8),
+                move_history=list(row["move_history"]),
+                winner=row["winner"],
+            )
+        )
+        mv: str = row["model_version"]
+        breakdown[mv] = breakdown.get(mv, 0) + 1
+    return games, breakdown
+
+
 # ── Pure game logic (mirrors lib/filler/rules.ts exactly) ────────────────────
 
 def _cell_index(r: int, c: int) -> int:

@@ -150,3 +150,46 @@ export async function getStats(): Promise<{
     currentModelVersion: row.current_model_version ?? "heuristic-v0",
   };
 }
+
+const MILESTONES = [100, 500, 1000, 5000] as const;
+
+export async function getEnrichedStats(): Promise<{
+  totalGamesCompleted: number;
+  humanGamesCompleted: number;
+  currentModel: string;
+  gamesTrainedOn: number;
+  milestones: number[];
+  nextMilestone: number;
+}> {
+  const [gameRows, modelRows] = await Promise.all([
+    sql`
+      SELECT
+        COUNT(*) FILTER (WHERE completed_at IS NOT NULL)                              AS total_completed,
+        COUNT(*) FILTER (WHERE completed_at IS NOT NULL AND anonymous_user_id != 'selfplay') AS human_completed
+      FROM games
+    `,
+    sql`
+      SELECT version, game_count
+      FROM   model_versions
+      ORDER  BY trained_at DESC
+      LIMIT  1
+    `,
+  ]);
+
+  const g = gameRows[0] as { total_completed: string; human_completed: string };
+  const m = modelRows[0] as { version: string; game_count: number } | undefined;
+
+  const humanGamesCompleted = Number(g.human_completed);
+  const nextMilestone =
+    ([...MILESTONES] as number[]).find((ms) => ms > humanGamesCompleted) ??
+    MILESTONES[MILESTONES.length - 1];
+
+  return {
+    totalGamesCompleted: Number(g.total_completed),
+    humanGamesCompleted,
+    currentModel: m?.version ?? "heuristic-v0",
+    gamesTrainedOn: m?.game_count ?? 0,
+    milestones: [...MILESTONES],
+    nextMilestone,
+  };
+}

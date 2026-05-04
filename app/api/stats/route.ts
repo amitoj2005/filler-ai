@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { getStats } from "@/lib/db";
+import { getEnrichedStats } from "@/lib/db";
 
-export const revalidate = 60; // cache for 60 s
+export const revalidate = 60;
 
 export async function GET() {
-  const stats = await getStats();
+  const stats = await getEnrichedStats();
   return NextResponse.json(stats);
 }

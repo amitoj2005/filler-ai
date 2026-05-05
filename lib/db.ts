@@ -151,6 +151,12 @@ export async function getStats(): Promise<{
   };
 }
 
+export interface ModelVersionRecord {
+  version: string;
+  gameCount: number;
+  trainedAt: string; // ISO string
+}
+
 const MILESTONES = [100, 500, 1000, 5000] as const;
 
 export async function getEnrichedStats(): Promise<{
@@ -161,8 +167,9 @@ export async function getEnrichedStats(): Promise<{
   gamesTrainedOn: number;
   milestones: number[];
   nextMilestone: number;
+  modelHistory: ModelVersionRecord[];
 }> {
-  const [gameRows, modelRows] = await Promise.all([
+  const [gameRows, modelRows, historyRows] = await Promise.all([
     sql`
       SELECT
         COUNT(*) FILTER (WHERE completed_at IS NOT NULL)                              AS total_completed,
@@ -176,6 +183,11 @@ export async function getEnrichedStats(): Promise<{
       ORDER  BY trained_at DESC
       LIMIT  1
     `,
+    sql`
+      SELECT version, game_count, trained_at
+      FROM   model_versions
+      ORDER  BY trained_at ASC
+    `,
   ]);
 
   const g = gameRows[0] as { total_completed: string; human_completed: string; ai_wins: string };
@@ -188,6 +200,14 @@ export async function getEnrichedStats(): Promise<{
     ([...MILESTONES] as number[]).find((ms) => ms > humanGamesCompleted) ??
     MILESTONES[MILESTONES.length - 1];
 
+  const modelHistory: ModelVersionRecord[] = (
+    historyRows as { version: string; game_count: number; trained_at: Date | string }[]
+  ).map((r) => ({
+    version: r.version,
+    gameCount: r.game_count,
+    trainedAt: new Date(r.trained_at).toISOString(),
+  }));
+
   return {
     totalGamesCompleted: Number(g.total_completed),
     humanGamesCompleted,
@@ -196,5 +216,6 @@ export async function getEnrichedStats(): Promise<{
     gamesTrainedOn: m?.game_count ?? 0,
     milestones: [...MILESTONES],
     nextMilestone,
+    modelHistory,
   };
 }

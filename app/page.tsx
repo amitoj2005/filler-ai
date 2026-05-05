@@ -10,6 +10,7 @@ const FALLBACK: StatsData = {
   gamesTrainedOn: 0,
   milestones: [100, 500, 1000, 5000],
   nextMilestone: 100,
+  modelHistory: [],
 };
 
 export default async function Home() {
@@ -22,6 +23,7 @@ export default async function Home() {
       gamesTrainedOn: s.gamesTrainedOn,
       milestones: s.milestones,
       nextMilestone: s.nextMilestone,
+      modelHistory: s.modelHistory,
     };
   } catch {
     // DB not available in CI / cold start — show fallback

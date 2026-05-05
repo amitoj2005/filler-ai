@@ -67,7 +67,7 @@ if args.include_human_games:
     print(f"  {len(games)} games total")
 
     # --min-new-games check: count non-selfplay completed games
-    human_count = sum(v for k, v in breakdown.items() if not k.startswith("heuristic"))
+    human_count = sum(v for k, v in breakdown.items() if k != SELFPLAY_VERSION)
     if args.min_new_games > 0 and human_count < args.min_new_games:
         print(f"  Only {human_count} human games (need {args.min_new_games}) — skipping training.")
         sys.exit(0)

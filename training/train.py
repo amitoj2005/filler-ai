@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from data import build_training_set, connect_db, fetch_all_games, fetch_games
+from data import build_training_set, connect_db, fetch_all_games, fetch_games, ROWS, COLS
 from model import FillerNet
 
 # ── CLI args ──────────────────────────────────────────────────────────────────
@@ -76,6 +76,15 @@ else:
     print(f"  {len(games)} games loaded (heuristic-selfplay-v0 only)")
     if args.min_new_games > 0:
         print("  --min-new-games ignored without --include-human-games")
+
+# Drop games whose boards were stored with swapped dimensions (legacy self-play bug)
+before = len(games)
+games = [g for g in games if g["initial_board"].shape == (ROWS, COLS)]
+if len(games) < before:
+    print(f"  Dropped {before - len(games)} games with wrong board shape ({before - len(games)} legacy self-play).")
+if not games:
+    print("  No valid games after shape filter — skipping.")
+    sys.exit(0)
 
 n_examples = sum(len(g["move_history"]) for g in games) * 2  # ×2 for mirror
 print(f"Building {n_examples:,} training examples…")

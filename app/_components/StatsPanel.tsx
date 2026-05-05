@@ -115,7 +115,11 @@ export default function StatsPanel({ initial }: { initial: StatsData }) {
                     {isCurrent && <span className="ml-1 text-gray-400 font-normal">(current)</span>}
                   </span>
                   <span className="text-xs text-gray-400 text-right shrink-0">
-                    {fmt(mv.gameCount)} games · {formatDate(mv.trainedAt)}
+                    {mv.gameCount === 0
+                      ? `pure heuristic · ${formatDate(mv.trainedAt)}`
+                      : mv.version.includes("heuristic")
+                        ? `${fmt(mv.gameCount)} bootstrapped · ${formatDate(mv.trainedAt)}`
+                        : `${fmt(mv.gameCount)} human games · ${formatDate(mv.trainedAt)}`}
                   </span>
                 </li>
               );

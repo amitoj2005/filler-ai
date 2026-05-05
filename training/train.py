@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader, TensorDataset
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from data import build_training_set, connect_db, fetch_all_games, fetch_games, ROWS, COLS
+from data import build_training_set, connect_db, fetch_all_games, fetch_games, get_last_model_info, ROWS, COLS
 from model import FillerNet
 
 # ── CLI args ──────────────────────────────────────────────────────────────────
@@ -66,13 +66,18 @@ if args.include_human_games:
         print(f"    {label}: {breakdown[mv]} games")
     print(f"  {len(games)} games total")
 
-    # --min-new-games check: count non-selfplay completed games
     human_count = sum(v for k, v in breakdown.items() if k != SELFPLAY_VERSION)
-    if args.min_new_games > 0 and human_count < args.min_new_games:
-        print(f"  Only {human_count} human games (need {args.min_new_games}) — skipping training.")
+    last_human_count, next_version_n = get_last_model_info()
+    if last_human_count > human_count:  # previous model used self-play count — treat as 0
+        last_human_count = 0
+    new_human_games = human_count - last_human_count
+    print(f"  {human_count} human games total, {new_human_games} new since last retrain.")
+    if args.min_new_games > 0 and new_human_games < args.min_new_games:
+        print(f"  Need {args.min_new_games} new games — skipping training.")
         sys.exit(0)
 else:
     games = fetch_games(SELFPLAY_VERSION)
+    next_version_n = 2
     print(f"  {len(games)} games loaded (heuristic-selfplay-v0 only)")
     if args.min_new_games > 0:
         print("  --min-new-games ignored without --include-human-games")
@@ -89,8 +94,7 @@ if not games:
 n_examples = sum(len(g["move_history"]) for g in games) * 2  # ×2 for mirror
 print(f"Building {n_examples:,} training examples…")
 
-# Version tag computed here so it includes the actual game count
-ONNX_VERSION_TAG = f"neural-{datetime.date.today().isoformat()}-{len(games)}games"
+ONNX_VERSION_TAG = f"v{next_version_n}-{datetime.date.today().isoformat()}-{len(games)}games"
 
 # Pre-allocate arrays then fill from the generator (avoids list overhead)
 inputs_arr  = np.empty((n_examples, 10, 7, 8), dtype=np.float32)
@@ -267,7 +271,7 @@ try:
                 ONNX_VERSION_TAG,
                 len(games),
                 "lib/ai/model.onnx",
-                "First neural model, 3-block CNN, trained on 2000 heuristic self-play games",
+                f"3-block CNN, trained on {len(games)} human games",
             ),
         )
     conn.commit()

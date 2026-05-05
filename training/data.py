@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Generator, TypedDict
 
 import random as _random
+import re as _re
 
 import numpy as np
 import psycopg2
@@ -75,6 +76,30 @@ def connect_db() -> psycopg2.extensions.connection:
     if not url:
         raise RuntimeError("DATABASE_URL not set – add it to .env.local")
     return psycopg2.connect(url)
+
+
+def get_last_model_info() -> tuple[int, int]:
+    """
+    Returns (human_game_count_at_last_training, next_version_number).
+    Queries model_versions for the most recently trained model and extracts
+    its game_count (used to compute new games since last retrain) and the
+    next sequential vN version number.
+    """
+    conn = connect_db()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT version, game_count FROM model_versions ORDER BY trained_at DESC LIMIT 1"
+            )
+            row = cur.fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        return 0, 2
+    version, game_count = row
+    m = _re.match(r"^v(\d+)", version or "")
+    n = int(m.group(1)) if m else 1
+    return (game_count or 0), n + 1
 
 
 # ── Game data types ───────────────────────────────────────────────────────────

@@ -71,7 +71,7 @@ def connect_db() -> psycopg2.extensions.connection:
     """Read DATABASE_URL from .env.local in the project root and connect."""
     env_path = Path(__file__).parent.parent / ".env.local"
     load_dotenv(env_path)
-    url = os.environ.get("DATABASE_URL")
+    url = (os.environ.get("DATABASE_URL") or "").strip()
     if not url:
         raise RuntimeError("DATABASE_URL not set – add it to .env.local")
     return psycopg2.connect(url)
